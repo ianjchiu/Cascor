@@ -1,5 +1,5 @@
 from __future__ import absolute_import, division, print_function
-import torch
+import numpy as np
 
 
 class CascorUtil:
@@ -21,8 +21,8 @@ class CascorUtil:
         p = prevs[:n_rows, :n_columns]
         t = np.where(p == s, np.ones(p.shape), p - s)
         next_step -= np.where(d * s <= 0, epsilon * s, np.zeros(next_step.shape))
-        mask1 = (((d < 0) & (s >= shrink_factor * p)) | ((d > 0) & (s <= shrink_factor * p)))
-        mask2 = (((d < 0) & (s < shrink_factor * p)) | ((d > 0) & (s > shrink_factor * p)))
+        mask1 = ((d < 0) & (s >= shrink_factor * p)) | ((d > 0) & (s <= shrink_factor * p))
+        mask2 = ((d < 0) & (s < shrink_factor * p)) | ((d > 0) & (s > shrink_factor * p))
         next_step += mu * d * mask1
         next_step += (d * s / t) * mask2
 

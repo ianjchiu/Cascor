@@ -1,6 +1,6 @@
 from __future__ import absolute_import, division, print_function
 from datasets import morse as ds
-import torch
+import numpy as np
 from Dataloader import Dataloader
 from OutputUnit import SigmoidOutputUnit
 from HiddenUnit import SigmoidHiddenUnit
@@ -17,7 +17,7 @@ hyper_error = False
 raw_error = False
 sigmoid_prime_offset = 0.1
 weight_range = 1.0
-distribution = torch.distributions.uniform.Uniform(-weight_range, weight_range)
+distribution = np.distributions.uniform.Uniform(-weight_range, weight_range)
 """Distribution for the randomized weights"""
 
 
@@ -160,39 +160,39 @@ first_case = 0
 nunits = 1 + ninputs
 # array of arrays of floats
 # a float array
-extra_values = torch.zeros(max_units)
+extra_values = np.zeros(max_units)
 values = extra_values
 # I'll figure out what to do with weights SoonTM
 weights = None
-outputs = torch.zeros(noutputs)
-extra_errors = torch.zeros(noutputs)
+outputs = np.zeros(noutputs)
+extra_errors = np.zeros(noutputs)
 errors = extra_errors
-sum_errors = torch.zeros(noutputs)
-dummy_sum_errors = torch.zeros(noutputs)
-cand_values = torch.zeros(ncandidates)
-cand_sum_values = torch.zeros(ncandidates)
-cand_scores = torch.zeros(ncandidates)
+sum_errors = np.zeros(noutputs)
+dummy_sum_errors = np.zeros(noutputs)
+cand_values = np.zeros(ncandidates)
+cand_sum_values = np.zeros(ncandidates)
+cand_scores = np.zeros(ncandidates)
 
 # Only create the cache if use_cache is on; may not have room
 if use_cache:
-    values_cache = torch.zeros((max_cases, max_units))
-    errors_cache = torch.zeros((max_cases, noutputs))
+    values_cache = np.zeros((max_cases, max_units))
+    errors_cache = np.zeros((max_cases, noutputs))
 
 # For each output, create the vectors holding per-weight info
-output_weights = torch.zeros((noutputs, max_units))
-output_weights_record = torch.zeros((max_units, noutputs))
-output_deltas = torch.zeros((noutputs, max_units))
-output_slopes = torch.zeros((noutputs, max_units))
-output_prev_slopes = torch.zeros((noutputs, max_units))
+output_weights = np.zeros((noutputs, max_units))
+output_weights_record = np.zeros((max_units, noutputs))
+output_deltas = np.zeros((noutputs, max_units))
+output_slopes = np.zeros((noutputs, max_units))
+output_prev_slopes = np.zeros((noutputs, max_units))
 
 # For each candidate unit, create the vectors holding the correlations, incoming weights, and other stats
-cand_cor = torch.zeros((ncandidates, noutputs))
-cand_prev_cor = torch.zeros((ncandidates, noutputs))
-cand_weights = torch.zeros((ncandidates, max_units+1))
-cand_deltas = torch.zeros((ncandidates, max_units+1))
-cand_slopes = torch.zeros((ncandidates, max_units+1))
-cand_prev_slopes = torch.zeros((ncandidates, max_units+1))
-cand_derivs = torch.zeros((ncandidates, max_units+1))
+cand_cor = np.zeros((ncandidates, noutputs))
+cand_prev_cor = np.zeros((ncandidates, noutputs))
+cand_weights = np.zeros((ncandidates, max_units+1))
+cand_deltas = np.zeros((ncandidates, max_units+1))
+cand_slopes = np.zeros((ncandidates, max_units+1))
+cand_prev_slopes = np.zeros((ncandidates, max_units+1))
+cand_derivs = np.zeros((ncandidates, max_units+1))
 
 
 unit_type = SigmoidHiddenUnit()
@@ -202,7 +202,7 @@ dataloader = Dataloader(training_inputs, training_outputs, use_training_breaks,
 
 network = CascorNetwork(ncandidates, unit_type, output_type, use_cache, score_threshold, dataloader, raw_error,
                         hyper_error,
-                 noutputs, ninputs, max_units, distribution=torch.distributions.uniform.Uniform(-1, 1))
+                 noutputs, ninputs, max_units, distribution=np.random.uniform)
 stats = CascorStats()
 candidate_trainer = CandidateUnitTrainer(network, input_patience, input_change_threshold, input_shrink_factor,
                  input_mu, input_decay, input_epsilon, stats)

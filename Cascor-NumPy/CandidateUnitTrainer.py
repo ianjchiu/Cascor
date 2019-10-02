@@ -45,7 +45,8 @@ class CandidateUnitTrainer:
         self.cand_cor = np.zeros((self.network.ncandidates, self.network.noutputs))
         self.cand_prev_cor = np.zeros((self.network.ncandidates, self.network.noutputs))
         self.cand_weights = \
-            self.network.distribution(-1,1,(np.Size([self.network.ncandidates, self.network.nunits + 1])))
+            self.network.distribution(self.network.ncandidates, self.network.nunits + 1) * 2 * \
+            self.network.weight_range - self.network.weight_range
 
     def compute_correlations(self, no_memory):
         """For the current training pattern, compute the value of each candidate
@@ -53,12 +54,13 @@ class CandidateUnitTrainer:
           the error at each output.  We have already done a forward-prop and
           computed the error values for active units."""
         acc_sum = np.matmul(self.cand_weights[:, 0:self.network.nunits],
-                               (self.network.values[:self.network.nunits]).view((self.network.nunits, 1)))
+                               np.reshape(self.network.values[:self.network.nunits], (self.network.nunits,1)))
         if not no_memory:
-            acc_sum += (self.cand_weights[:, self.network.nunits]).view((self.cand_weights[:, self.network.nunits].shape[0], 1)) * \
-                       self.cand_values.view((self.cand_values.shape[0], 1))
+            acc_sum += np.reshape(self.cand_weights[:, self.network.nunits],
+                                  (self.cand_weights[:, self.network.nunits].shape[0], 1)) *  \
+                       np.reshape(self.cand_values,(self.cand_values.shape[0], 1))
         v = self.network.unit_type.activation(acc_sum)
-        vt = v.view((v.shape[0]))
+        vt = np.reshape(v, v.shape[0])
         self.cand_values[:] = vt
         self.cand_sum_values[:] += vt
         self.cand_cor[:] += v * self.network.errors

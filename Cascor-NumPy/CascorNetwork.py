@@ -7,7 +7,8 @@ class CascorNetwork:
 
     def __init__(self, ncandidates, unit_type, output_type, use_cache, score_threshold, dataloader, raw_error,
                  hyper_error, noutputs=1, ninputs=1, max_units=100,
-                 distribution=np.random.uniform):
+                 distribution=np.random.uniform, weight_range=1):
+        self.weight_range = weight_range
         self.ncandidates = ncandidates
         self.raw_error = raw_error
         self.hyper_error = hyper_error
@@ -39,8 +40,8 @@ class CascorNetwork:
             self.errors_cache = np.zeros((self.max_cases, self.noutputs))
         # For each output, create the vectors holding per-weight info
         self.output_weights = np.zeros((self.noutputs, self.max_units))
-        self.output_weights[:self.noutputs, :1+self.ninputs] = self.distribution(-1,1, np.Size([self.noutputs,
-                                                                                               1+self.ninputs]))
+        self.output_weights[:self.noutputs, :1+self.ninputs] = \
+            self.distribution(self.noutputs, 1+self.ninputs) * 2 * self.weight_range - self.weight_range
 
     def set_up_inputs(self, input_vec):
         """Set up all the inputs from the input_vec vector as the first few entries in the values vector"""
@@ -51,13 +52,14 @@ class CascorNetwork:
         """Assume that values vector has correct current values for all units with index less than J.
         Compute, record, and return the value for unit J. prev_values is is the previous value of unit J."""
         w = self.weights[j]
-        self.values[j] = self.unit_type.activation_singleton(np.sum((w[:j] * self.values[:j])) + prev_value * w[j])
+        self.values[j] = self.unit_type.activation_singleton(np.matmul((w[:j] * self.values[:j]), np.ones((j, 1))) +
+                                                             prev_value * w[j])
         return self.values[j]
 
     def output_forward_pass(self):
         """Assume the values vector has been set up. Just compute the network's outputs"""
-        self.outputs = np.matmul(self.values[:self.nunits],(self.output_weights[:, :self.nunits]).transpose(0,1))
-        self.outputs = self.output_type.output_function(self.outputs)
+        self.outputs = np.matmul(self.values[:self.nunits],np.transpose(self.output_weights[:, :self.nunits]))
+        self.outputs = np.array(list(map(self.output_type.output_function, self.outputs)))
 
     def recompute_errors(self, goal):
         """Like compute errors, but don't bother updating slopes and statistics."""
