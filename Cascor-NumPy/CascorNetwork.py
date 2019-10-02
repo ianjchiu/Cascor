@@ -1,5 +1,5 @@
 from __future__ import absolute_import, division, print_function
-import torch
+import numpy as np
 
 
 class CascorNetwork:
@@ -41,7 +41,7 @@ class CascorNetwork:
         # For each output, create the vectors holding per-weight info
         self.output_weights = np.zeros((self.noutputs, self.max_units))
         self.output_weights[:self.noutputs, :1+self.ninputs] = \
-            self.distribution(self.noutputs, 1+self.ninputs) * 2 * self.weight_range - self.weight_range
+            self.distribution(size=(self.noutputs, 1+self.ninputs)) * 2 * self.weight_range - self.weight_range
 
     def set_up_inputs(self, input_vec):
         """Set up all the inputs from the input_vec vector as the first few entries in the values vector"""

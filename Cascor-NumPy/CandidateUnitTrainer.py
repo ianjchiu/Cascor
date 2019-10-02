@@ -30,7 +30,8 @@ class CandidateUnitTrainer:
         self.cand_prev_slopes = np.zeros((self.network.ncandidates, self.network.nunits + 1))
         self.cand_cor = np.zeros((self.network.ncandidates, self.network.noutputs))
         self.cand_prev_cor = np.zeros((self.network.ncandidates, self.network.noutputs))
-        self.cand_weights = self.network.distribution(-1,1,np.Size([self.network.ncandidates, self.network.nunits + 1]))
+        self.cand_weights = self.network.distribution(size=(self.network.ncandidates, self.network.nunits + 1)) * 2 * \
+                            self.network.weight_range - self.network.weight_range
 
     def reset_candidates(self):
         """Give new random weights to all of the candidate units.  Zero the other
@@ -45,7 +46,7 @@ class CandidateUnitTrainer:
         self.cand_cor = np.zeros((self.network.ncandidates, self.network.noutputs))
         self.cand_prev_cor = np.zeros((self.network.ncandidates, self.network.noutputs))
         self.cand_weights = \
-            self.network.distribution(self.network.ncandidates, self.network.nunits + 1) * 2 * \
+            self.network.distribution(size=(self.network.ncandidates, self.network.nunits + 1)) * 2 * \
             self.network.weight_range - self.network.weight_range
 
     def compute_correlations(self, no_memory):
@@ -76,22 +77,24 @@ class CandidateUnitTrainer:
             self.best_candidate_score = max(self.best_candidate_score, 0.0)
         else:
             self.cand_prev_cor[:self.network.ncandidates, :self.network.noutputs] = \
-                (self.cand_cor - self.network.sum_errors * self.cand_sum_values.unsqueeze(1)) / \
+                (self.cand_cor - self.network.sum_errors * self.cand_sum_values[:, np.newaxis]) / \
                 self.network.sum_sq_error
-            self.cand_scores[:self.network.ncandidates] = (np.abs(self.cand_prev_cor)).sum(1)
+            self.cand_scores[:self.network.ncandidates] = np.reshape(np.matmul((np.abs(self.cand_prev_cor)),
+                                                                     np.ones((self.network.noutputs, 1))),
+                                                                     self.network.ncandidates)
             self.cand_cor = np.zeros((self.network.ncandidates, self.network.noutputs))
-            (cur_best, index) = np.max(self.cand_scores, 0)
+            cur_best = np.amax(self.cand_scores)
             if cur_best >= self.best_candidate_score:
-                self.best_candidate_score = cur_best.item()
-                self.best_candidate = index.item()
+                self.best_candidate_score = cur_best
+                self.best_candidate = np.argmax(self.cand_scores)
 
     def compute_slopes(self, no_memory):
         """Given the correlation values for each candidate-output pair, compute
       the derivative of the candidate's score with respect to each incoming
       weight."""
         acc_sum = np.matmul(self.cand_weights[:self.network.ncandidates, :self.network.nunits],
-                               (self.network.values[:self.network.nunits]).reshape((self.network.nunits, 1)))
-        acc_sum = acc_sum.view(acc_sum.shape[0])
+                               np.reshape(self.network.values[:self.network.nunits], (self.network.nunits,1)))
+        acc_sum = np.reshape(acc_sum, acc_sum.shape[0])
         if not no_memory:
             acc_sum += self.cand_weights[:self.network.ncandidates, self.network.nunits] * \
                        self.cand_values[:self.network.ncandidates]
@@ -102,21 +105,20 @@ class CandidateUnitTrainer:
             direction = np.zeros(self.network.ncandidates)
         else:
             direction = (np.where(self.cand_prev_cor == 0, np.zeros((self.network.ncandidates,
-                                                                           self.network.noutputs)),
-                                     -1 * np.sign(self.cand_prev_cor) * ((self.network.errors -
-                                                                             self.network.sum_errors) /
-                                                                            self.network.sum_sq_error).repeat(
-                                         self.network.ncandidates, 1))).sum(1)
-            direction = direction.view(direction.shape[0])
-        self.cand_cor += self.network.errors * value.view((value.shape[0], 1))
+                                                                     self.network.noutputs)),
+                                  -1 * np.sign(self.cand_prev_cor) *
+                                  np.tile((self.network.errors - self.network.sum_errors) /
+                                          self.network.sum_sq_error, (self.network.ncandidates, 1)))).sum(axis=1)
+            direction = np.reshape(direction, (direction.shape[0]))
+        self.cand_cor += self.network.errors * np.reshape(value, (value.shape[0], 1))
         if no_memory:
-            dsum = actprime.view(actprime.shape[0], 1) * self.network.values[:self.network.nunits]
+            dsum = np.reshape(actprime, (actprime.shape[0], 1)) * self.network.values[:self.network.nunits]
         else:
-            dsum = actprime.view(actprime.shape[0], 1) * \
-                   (self.network.values[:self.network.nunits] + (self.cand_weights[:, self.network.nunits] *
-                                            self.cand_derivs[:, :self.network.nunits].transpose(0, 1)).transpose(0, 1))
+            dsum = np.reshape(actprime,(actprime.shape[0], 1)) * (self.network.values[:self.network.nunits] +
+                                                                  (self.cand_weights[:, self.network.nunits] *
+                                            self.cand_derivs[:, :self.network.nunits].T).T)
         self.cand_slopes[:self.network.ncandidates, :self.network.nunits] += \
-            direction.view((direction.shape[0], 1)) * dsum
+            np.reshape(direction, (direction.shape[0], 1)) * dsum
         self.cand_derivs[:self.network.ncandidates, :self.network.nunits] = dsum
 
         if not no_memory:

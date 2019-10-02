@@ -17,7 +17,6 @@ hyper_error = False
 raw_error = False
 sigmoid_prime_offset = 0.1
 weight_range = 1.0
-distribution = np.distributions.uniform.Uniform(-weight_range, weight_range)
 """Distribution for the randomized weights"""
 
 
