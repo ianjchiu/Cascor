@@ -23,7 +23,7 @@ It also contains the network represented in the arrays:
 * weights - array of weights from unit to unit
 * outputs - stored outputs after a forward pass
 
-###CandidateUnitTrainer.py
+### CandidateUnitTrainer.py
 This class does one of the two major parts of training cascor. This is the input-forward pass training where we train our candidate units and find the candidate whose score correlates most strongly with the current error signal. Contains hyperparameters for candidate pool training:
 * mu - Parameter for quickprop
 * epsilon - The amount of linear gradient descent used to update unit input weights
@@ -32,7 +32,7 @@ This class does one of the two major parts of training cascor. This is the input
 * patience - Number of allowed consecutive epochs without significant change
 * change_threshold - Amount changed required to count as a significant change
 
-###CascorTrainer.py
+### CascorTrainer.py
 This class does most of the heavy lifting. It performs the outer loop of training the output weights after adding a new unit to the network. Additionally, it calls the candidate pool trainer to train the network to completion. Its hyperparameters of mu, epsilon, shrink_factor, decay, patience, change_threshold defined as above. The additional hyperparameters are:
 * stats - Keeps track of the epoch and other statistics for the network
 * outlimit - Upper limit on the number of cycles in output phase
@@ -40,7 +40,7 @@ This class does most of the heavy lifting. It performs the outer loop of trainin
 * rounds - Upper limit on number of unit-installation cycles
 
 
-###Motivations and Future Extensions:
+### Motivations and Future Extensions:
 In tester.py, I hacked together a slight proof of correctness to make sure that the network ran the same as it did in the base code. With regards to separating HiddenUnit and OutputUnit from the network definition and the trainer definitions, this would allow for a natural extension where we used mixed units in the candidate pool. An example of testing the code would be in `tester.py` with the following commands:
 ```
 unit_type = SigmoidHiddenUnit()
