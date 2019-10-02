@@ -158,11 +158,8 @@ max_cases = len(training_inputs)
 ncases = max_cases
 first_case = 0
 nunits = 1 + ninputs
-# array of arrays of floats
-# a float array
 extra_values = torch.zeros(max_units)
 values = extra_values
-# I'll figure out what to do with weights SoonTM
 weights = None
 outputs = torch.zeros(noutputs)
 extra_errors = torch.zeros(noutputs)
