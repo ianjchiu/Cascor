@@ -1,4 +1,7 @@
 from __future__ import absolute_import, division, print_function
+from CascorUtil import quickprop_update, compute_unit_value
+from HiddenUnit import HiddenUnit, AsigmoidHiddenUnit, GaussianHiddenUnit, SigmoidHiddenUnit
+from OutputUnit import LinearOutputUnit, SigmoidOutputUnit
 from numpy import exp, random, log
 import numpy as np
 import matplotlib.pyplot as plt
@@ -7,7 +10,9 @@ import time
 import torch
 
 class CascorNetwork:
-    def __init__(self, dataloader, noutputs=1, ninputs=1, max_units=100, unit_type, output_type, use_cache):
+    def __init__(self, use_cache, distribution, dataloader, noutputs=1, ninputs=1, max_units=100, unit_type, output_type, use_cache):
+        self.use_cache = use_cache
+        self.distribution = distribution
         self.max_units = max_units
         self.dataloader = dataloader
         self.unit_type = unit_type
@@ -30,7 +35,7 @@ class CascorNetwork:
         self.cand_values = torch.zeros(self.ncandidates)
         self.cand_sum_values = torch.zeros(self.ncandidates)
         self.cand_scores = torch.zeros(self.ncandidates)
-        if use_cache:
+        if self.use_cache:
             self.values_cache = torch.zeros((self.max_cases, self.max_units))
             self.errors_cache = torch.zeros((self.max_cases, self.noutputs))
 
@@ -52,49 +57,56 @@ class CascorNetwork:
         self.cand_prev_slopes = torch.zeros((self.ncandidates, self.max_units + 1))
         self.cand_derivs = torch.zeros((self.ncandidates, self.max_units + 1))
 
-
-    def quickprop_update(self, weights, deltas, slopes, prevs, epsilon, decay, mu, shrink_factor, is_input):
-        n_columns = self.nunits + 1 if is_input else self.nunits
-        n_rows = self.ncandidates if is_input else self.noutputs
-        next_step = torch.zeros((n_rows, n_columns))
-        w = self.weights[:n_rows, :n_columns]
-        d = self.deltas[:n_rows, :n_columns]
-        s = self.slopes[:n_rows, :n_columns] + (w * decay)
-        p = self.prevs[:n_rows, :n_columns]
-        t = self.torch.where(p == s, torch.ones(p.shape), p - s)
-        next_step -= torch.where(d * s <= 0, epsilon * s, torch.zeros(next_step.shape))
-        mask1 = (((d < 0) & (s >= shrink_factor * p)) | ((d > 0) & (s <= shrink_factor * p))).type(torch.FloatTensor)
-        mask2 = (((d < 0) & (s < shrink_factor * p)) | ((d > 0) & (s > shrink_factor * p))).type(torch.FloatTensor)
-        next_step += mu * d * mask1
-        next_step += (d * s / t) * mask2
-
-        deltas[:n_rows, :n_columns] = next_step
-        weights[:n_rows, :n_columns] += next_step
-        prevs[:n_rows, :n_columns] = slopes[:n_rows, :n_columns] + (w * decay)
-        slopes[:n_rows, :n_columns] *= 0.0
+    def install_new_unit(self, unit, prev_cor, weight_multiplier):
+        if self.nunits >= self.max_units:
+            return False
+        self.weights[self.nunits, :self.nunits+1] = unit[:1+nunits]
+        print("  Add unit {0}: {1}".format(nunits - ninputs, unit))
+        self.output_weights[:, self.nunits] = weight_multiplier *  -prev_cor
+        if self.use_cache:
+            prev_value = 0.0
+            for i in range(self.max_cases):
+                self.values = self.valeus_cache[i]
+                if self.dataloader.use_training_breaks and self.dataloader.training_breaks[i]:
+                    prev_value = compute_unit_value(self.values, self.weights, self.unit_type, self.nunits, 0.0)
+                else:
+                    prev_value = compute_unit_value(self.values, self.weights, self.unit_type, self.nunits, prev_value)
+        self.nunits += 1
+        return True
 
 
     def set_up_inputs(self, input_vec):
         self.values[0] = 1.0
         self.values[1:self.ninputs+1] = input_vec
 
+
     def compute_unit_value(self, j, prev_value):
         w = self.weights[j]
-        self.values[j] = self.unit_type.activation_singleton(torch.sum((w[:j] * values[:j])) + prev_value * w[j])
+        self.values[j] = self.unit_type.activation_singleton(torch.sum((w[:j] * self.values[:j])) + prev_value * w[j])
         return self.values[j]
 
+
     def output_forward_pass(self):
-        self.outputs = torch.matmul(values[:nunits],(output_weights[:, :nunits]).transpose(0,1))
-        self.outputs = self.output_type.output_function(outputs)
+        self.outputs = torch.matmul(self.values[:nunits],(self.output_weights[:, :self.nunits]).transpose(0,1))
+        self.outputs = self.output_type.output_function(self.outputs)
+
+    def recompute_errors(self, goal):
+        for j in range(self.noutputs):
+            out = self.outputs[j]
+            diff = out - goal[j]
+            err_prime = dif * self.output_type.output_prime(out)
+            self.errors[j] = err_prime
+
 
     def full_forward_pass(self, input_vec, no_memory):
         self.set_up_inputs(input_vec)
         for j in range(1 + self.ninputs, self.nunits):
             if no_memory:
-                self.compute_unit_value(self, j, 0.0)
+                self.compute_unit_value(self.values, self.weights, self.unit_type, j, 0.0)
             else:
-                self.compute_unit_value(self, j, values[j])
+                self.compute_unit_value(self.values, self.weights, self.unit_type,j, values[j])
         self.output_forward_pass()
+
 
 
 
