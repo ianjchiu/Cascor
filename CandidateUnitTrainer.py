@@ -1,11 +1,12 @@
 from CascorNetwork import CascorNetwork
-from CascorUtil import quickprop_update, compute_unit_value
+from CascorUtil import CascorUtil, CascorStats
 
 
 class CandidateUnitTrainer:
-    def __init__(self, network, input_patience, input_change_threshold, input_shrink_factor, input_mu, input_decay, input_epsilon):
+    def __init__(self, network, input_patience, input_change_threshold, input_shrink_factor, input_mu, input_decay, input_epsilon, stats):
         """Give new random weights to all of the candidate units.  Zero the other
           candidate-unit statistics."""
+        self.stats = stats
         self.decay = input_decay
         self.epsilon = input_epsilon
         self.shrink_factor = input_shrink_factor
@@ -26,7 +27,21 @@ class CandidateUnitTrainer:
         self.cand_cor = torch.zeros((self.network.ncandidates, self.network.noutputs))
         self.cand_prev_cor = torch.zeros((self.network.ncandidates, self.network.noutputs))
         self.cand_weights = self.network.distribution.sample(torch.Size([self.network.ncandidates, self.network.nunits + 1]))
-        self.epoch = 0
+
+
+    def reset_candidates(self):
+        """Give new random weights to all of the candidate units.  Zero the other
+          candidate-unit statistics."""
+        self.cand_values = torch.zeros(self.network.ncandidates)
+        self.cand_sum_values = torch.zeros(self.network.ncandidates)
+        self.cand_scores = torch.zeros(self.network.ncandidates)
+        self.cand_deltas = torch.zeros((self.network.ncandidates, self.network.nunits + 1))
+        self.cand_derivs = torch.zeros((self.network.ncandidates, self.network.nunits + 1))
+        self.cand_slopes = torch.zeros((self.network.ncandidates, self.network.nunits + 1))
+        self.cand_prev_slopes = torch.zeros((self.network.ncandidates, self.network.nunits + 1))
+        self.cand_cor = torch.zeros((self.network.ncandidates, self.network.noutputs))
+        self.cand_prev_cor = torch.zeros((self.network.ncandidates, self.network.noutputs))
+        self.cand_weights = self.network.distribution.sample(torch.Size([self.network.ncandidates, self.network.nunits + 1]))
 
 
     def compute_correlations(self, no_memory):
@@ -64,51 +79,52 @@ class CandidateUnitTrainer:
                 self.best_candidate_score = cur_best.item()
                 self.best_candidate = index.item()
 
-       def compute_slopes(self, no_memory):
-            """Given the correlation values for each candidate-output pair, compute
-          the derivative of the candidate's score with respect to each incoming
-          weight."""
-            acc_sum = torch.matmul(self.cand_weights[:self.network.ncandidates, :self.network.nunits],
-                                   (self.network.values[:self.network.nunits]).reshape((self.network.nunits, 1)))
-            acc_sum = acc_sum.view(acc_sum.shape[0])
-            if not no_memory:
-                acc_sum += self.cand_weights[:self.network.ncandidates, self.network.nunits] * self.cand_values[:self.network.ncandidates]
-            value = self.network.unit_type.activation(acc_sum)
-            actprime = self.network.unit_type.activation_prime(value, acc_sum)
-            # Now compute which way we want to adjust each unit's incoming activation sum and how much
-            if self.network.sum_sq_error == 0:
-                direction = np.zeros(self.network.ncandidates)
-            else:
-                direction = (torch.where(self.cand_prev_cor == 0, torch.zeros((self.network.ncandidates, self.network.noutputs)),
-                                         -1 * torch.sign(self.cand_prev_cor) * ((self.network.errors - self.network.sum_errors) / self.network.sum_sq_error).repeat(
-                                             self.network.ncandidates, 1))).sum(1)
-                direction = direction.view(direction.shape[0])
-            self.cand_cor += self.network.errors * value.view((value.shape[0], 1))
-            if no_memory:
-                dsum = actprime.view(actprime.shape[0], 1) * values[:self.network.nunits]
-            else:
-                dsum = actprime.view(actprime.shape[0], 1) * \
-                       (values[:self.network.nunits] + (self.cand_weights[:, self.network.nunits] *
-                                                self.cand_derivs[:, :self.network.nunits].transpose(0, 1)).transpose(0, 1))
-            cand_slopes[:self.network.ncandidates, :self.network.nunits] += direction.view((direction.shape[0], 1)) * dsum
-            cand_derivs[:self.network.ncandidates, :self.network.nunits] = dsum
 
-            if not no_memory:
-                dsum = actprime * (self.cand_values + self.cand_weights[:self.network.ncandidates, self.network.nunits] * self.cand_derivs[:self.network.ncandidates, self.network.nunits])
-                self.cand_slopes[:self.network.ncandidates, self.network.nunits] += direction * dsum
-                self.cand_derivs[:self.network.ncandidates, self.network.nunits] = dsum
-                # Compute derivative of activation sum w.r.t unit's auto-recurrent weight
-            # Save unit value for use in next training case
-            self.cand_values = value
-            self.cand_sum_values += value
+    def compute_slopes(self, no_memory):
+        """Given the correlation values for each candidate-output pair, compute
+      the derivative of the candidate's score with respect to each incoming
+      weight."""
+        acc_sum = torch.matmul(self.cand_weights[:self.network.ncandidates, :self.network.nunits],
+                               (self.network.values[:self.network.nunits]).reshape((self.network.nunits, 1)))
+        acc_sum = acc_sum.view(acc_sum.shape[0])
+        if not no_memory:
+            acc_sum += self.cand_weights[:self.network.ncandidates, self.network.nunits] * self.cand_values[:self.network.ncandidates]
+        value = self.network.unit_type.activation(acc_sum)
+        actprime = self.network.unit_type.activation_prime(value, acc_sum)
+        # Now compute which way we want to adjust each unit's incoming activation sum and how much
+        if self.network.sum_sq_error == 0:
+            direction = np.zeros(self.network.ncandidates)
+        else:
+            direction = (torch.where(self.cand_prev_cor == 0, torch.zeros((self.network.ncandidates, self.network.noutputs)),
+                                     -1 * torch.sign(self.cand_prev_cor) * ((self.network.errors - self.network.sum_errors) / self.network.sum_sq_error).repeat(
+                                         self.network.ncandidates, 1))).sum(1)
+            direction = direction.view(direction.shape[0])
+        self.cand_cor += self.network.errors * value.view((value.shape[0], 1))
+        if no_memory:
+            dsum = actprime.view(actprime.shape[0], 1) * values[:self.network.nunits]
+        else:
+            dsum = actprime.view(actprime.shape[0], 1) * \
+                   (values[:self.network.nunits] + (self.cand_weights[:, self.network.nunits] *
+                                            self.cand_derivs[:, :self.network.nunits].transpose(0, 1)).transpose(0, 1))
+        cand_slopes[:self.network.ncandidates, :self.network.nunits] += direction.view((direction.shape[0], 1)) * dsum
+        cand_derivs[:self.network.ncandidates, :self.network.nunits] = dsum
+
+        if not no_memory:
+            dsum = actprime * (self.cand_values + self.cand_weights[:self.network.ncandidates, self.network.nunits] * self.cand_derivs[:self.network.ncandidates, self.network.nunits])
+            self.cand_slopes[:self.network.ncandidates, self.network.nunits] += direction * dsum
+            self.cand_derivs[:self.network.ncandidates, self.network.nunits] = dsum
+            # Compute derivative of activation sum w.r.t unit's auto-recurrent weight
+        # Save unit value for use in next training case
+        self.cand_values = value
+        self.cand_sum_values += value
 
 
     def update_input_weights(self):
         """Update the input weights, using the pre-computed slopes, prev_slopes,
       and delta values.  Uses the quickprop update function."""
         eps = self.epsilon / (self.network.ncases * self.network.nunits)
-        quickprop_update(self.cand_weights, self.cand_deltas, self.cand_slopes, self.cand_prev_slopes, eps, self.decay,
-                         self.mu, self.shrink_factor, True)
+        CascorUtil.quickprop_update(self.cand_weights, self.cand_deltas, self.cand_slopes, self.cand_prev_slopes, eps, self.decay,
+                                    self.mu, self.shrink_factor, True)
 
 
     def train_inputs_epoch(self):
@@ -138,7 +154,7 @@ class CandidateUnitTrainer:
             self.update_input_weights()
             # Fix up the correlation values for the next epoch
             self.adjust_correlations()
-            self.epoch += 1
+            self.stats.epoch += 1
 
     def correlations_epoch(self):
         """Do an epoch through all active training patterns just to compute the
@@ -161,7 +177,7 @@ class CandidateUnitTrainer:
                 self.network.recompute_errors(self.network.dataloader.training_outputs[i])
             self.compute_correlations(no_memory)
         self.adjust_correlations()
-        self.epoch += 1
+        self.stats.epoch += 1
 
 
     def train_inputs(self, max_epochs):
@@ -188,7 +204,7 @@ class CandidateUnitTrainer:
                 stop = i + self.patience
             elif i >= stop:
                 # stagnant
-                return True
+                return "stagnant"
         # timeout
-        return False
+        return "timeout"
 

@@ -10,7 +10,8 @@ import time
 import torch
 
 class CascorNetwork:
-    def __init__(self, use_cache, distribution, dataloader, noutputs=1, ninputs=1, max_units=100, unit_type, output_type, use_cache):
+    def __init__(self, unit_type, output_type, use_cache, score_threshold, distribution, dataloader, noutputs=1, ninputs=1, max_units=100):
+        self.score_threshold = score_threshold
         self.use_cache = use_cache
         self.distribution = distribution
         self.max_units = max_units
@@ -56,6 +57,7 @@ class CascorNetwork:
         self.cand_slopes = torch.zeros((self.ncandidates, self.max_units + 1))
         self.cand_prev_slopes = torch.zeros((self.ncandidates, self.max_units + 1))
         self.cand_derivs = torch.zeros((self.ncandidates, self.max_units + 1))
+
 
     def install_new_unit(self, unit, prev_cor, weight_multiplier):
         if self.nunits >= self.max_units:
