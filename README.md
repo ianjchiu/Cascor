@@ -67,8 +67,10 @@ In this case, we create our network by initializing the unit_type, output_type, 
 
 
 ## Authors
-* Scott Fahlman and Chrisian Lebiere - *initial work*
 * Ian Chiu - NumPy and PyTorch implementation 
+
+## Acknowledgements
+* Scott Fahlman and Chrisian Lebiere - *development of algorithm and architecture, as well as initial implementation of Cascor in Common Lisp*
 
 ### Contact
 For issues, concerns, or suggestions please contact [Ian Chiu](mailto:ichiu@andrew.cmu.edu)
