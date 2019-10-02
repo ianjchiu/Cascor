@@ -3,7 +3,7 @@
 An implementation of recurrent Cascade-Correlation (cascor) in both NumPy and PyTorch. The goal of the project is to create a modern, user-friendly implementation of recurrent cascor. Additionally, we extend this project to PyTorch in order to explore the possibilities of utilizing GPUs for increased speed for recurrent cascor.
 
 ## Overview:
-In both Cascor-NumPy/ and Cascor-PyTorch/, the logic is identical. Therefore this overview will briefly cover the structure of the code to facilitate usage and experimentation for the project. 
+In both `Cascor-NumPy/` and `Cascor-PyTorch/`, the logic is identical. Therefore this overview will briefly cover the structure of the code to facilitate usage and experimentation for the project. 
 
 ### CascorNetwork.py
 In CascorNetwork.py, I created a class for the recurrent cascor network. The purpose is to separate out the structure of the code so that training the network will be separated from utilizing the network. For Cascor, the key details are the hyperparameters of the network:
