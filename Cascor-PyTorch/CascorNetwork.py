@@ -43,20 +43,24 @@ class CascorNetwork:
                                                                                                1+self.ninputs]))
 
     def set_up_inputs(self, input_vec):
+        """Set up all the inputs from the input_vec vector as the first few entries in the values vector"""
         self.values[0] = 1.0
         self.values[1:self.ninputs+1] = input_vec
 
-
     def compute_unit_value(self, j, prev_value):
+        """Assume that values vector has correct current values for all units with index less than J.
+        Compute, record, and return the value for unit J. prev_values is is the previous value of unit J."""
         w = self.weights[j]
         self.values[j] = self.unit_type.activation_singleton(torch.sum((w[:j] * self.values[:j])) + prev_value * w[j])
         return self.values[j]
 
     def output_forward_pass(self):
+        """Assume the values vector has been set up. Just compute the network's outputs"""
         self.outputs = torch.matmul(self.values[:self.nunits],(self.output_weights[:, :self.nunits]).transpose(0,1))
         self.outputs = self.output_type.output_function(self.outputs)
 
     def recompute_errors(self, goal):
+        """Like compute errors, but don't bother updating slopes and statistics."""
         for j in range(self.noutputs):
             out = self.outputs[j]
             diff = out - goal[j]
@@ -64,6 +68,9 @@ class CascorNetwork:
             self.errors[j] = err_prime
 
     def full_forward_pass(self, input_vec, no_memory):
+        """This is called only when not using the cache. Set up the inputs from the input_vec vector,
+        then propagate activation values forward through all hidden units and output units.
+        If no-memory is True, assume the previous unit values are all zero."""
         self.set_up_inputs(input_vec)
         for j in range(1 + self.ninputs, self.nunits):
             if no_memory:
@@ -73,6 +80,8 @@ class CascorNetwork:
         self.output_forward_pass()
 
     def install_new_unit(self, unit, prev_cor, weight_multiplier):
+        """Add the candidate-unit with the best correlation score to the active
+          network."""
         if self.nunits >= self.max_units:
             return False
         self.weights[self.nunits, :self.nunits+1] = unit[:1+self.nunits]

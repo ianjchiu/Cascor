@@ -102,7 +102,8 @@ class CascorTrainer:
                                                (self.network.dataloader.use_training_breaks and
                                                 self.network.dataloader.training_breaks[i]))
             # gotta expand compute_error macro
-            err_bits, true_err, sum_sq_err = self.compute_errors(self.network.dataloader.training_outputs[i], err_bits, true_err, sum_sq_err, True)
+            err_bits, true_err, sum_sq_err = \
+                self.compute_errors(self.network.dataloader.training_outputs[i], err_bits, true_err, sum_sq_err, True)
         self.error_bits = err_bits
         self.true_error = true_err
         self.network.sum_sq_error = sum_sq_err
@@ -111,7 +112,6 @@ class CascorTrainer:
         if self.error_bits != 0:
             self.update_output_weights()
             self.stats.epoch += 1
-
 
     def train_outputs(self, max_epochs):
         """Train the output weights.  If we exhaust max_epochs, stop with value
@@ -157,7 +157,8 @@ class CascorTrainer:
                 finished = datetime.now().time()
                 finished_seconds = time.time()
                 print(
-                    f'Victory at {self.stats.epoch} epochs, {self.network.nunits} units, {(self.network.nunits - self.network.ninputs - 1)} hidden, Error {self.true_error}.')
+                    f'Victory at {self.stats.epoch} epochs, {self.network.nunits} units, '
+                    f'{(self.network.nunits - self.network.ninputs - 1)} hidden, Error {self.true_error}.')
                 print(f'Victory achieved at {finished} in '
                       f'{datetime.combine(date.today(), finished) - datetime.combine(date.today(), start)}')
                 if self.test:
@@ -210,7 +211,8 @@ class CascorTrainer:
         test_true_err = 0.0
         sum_sq_err = 0.0
         # Zero context at the start of the training set.
-        self.network.values[1 + self.network.ninputs:self.network.nunits] = torch.zeros(self.network.nunits - 1 - self.network.ninputs)
+        self.network.values[1 + self.network.ninputs:self.network.nunits] = \
+            torch.zeros(self.network.nunits - 1 - self.network.ninputs)
 
         # Run all training patterns and count errors
 
@@ -219,15 +221,22 @@ class CascorTrainer:
                                            self.network.dataloader.use_training_breaks and
                                            self.network.dataloader.training_breaks[i])
             train_err_bits, train_true_err, sum_sq_err = \
-                self.compute_errors(self.network.dataloader.training_outputs[i], train_err_bits, train_true_err, sum_sq_err, False)
-        print(f'Training: {train_err_bits} of {(len(self.network.dataloader.training_inputs))} wrong, error {train_true_err}.')
+                self.compute_errors(self.network.dataloader.training_outputs[i], train_err_bits,
+                                    train_true_err, sum_sq_err, False)
+        print(f'Training: {train_err_bits} of {(len(self.network.dataloader.training_inputs))} wrong, '
+              f'error {train_true_err}.')
         # Zero context at the start of the test set.
-        self.network.values[1 + self.network.ninputs:self.network.nunits] = torch.zeros(self.network.nunits - 1 - self.network.ninputs)
+        self.network.values[1 + self.network.ninputs:self.network.nunits] =\
+            torch.zeros(self.network.nunits - 1 - self.network.ninputs)
         if self.network.dataloader.test_inputs is not None:
             for i in range(len(self.network.dataloader.test_inputs)):
-                self.network.full_forward_pass(self.network.dataloader.test_inputs[i], self.network.dataloader.use_test_breaks and self.network.dataloader.test_breaks[i])
+                self.network.full_forward_pass(self.network.dataloader.test_inputs[i],
+                                               self.network.dataloader.use_test_breaks and
+                                               self.network.dataloader.test_breaks[i])
                 test_err_bits, test_true_err, sum_sq_err = \
-                    self.compute_errors(self.network.dataloader.test_outputs[i], test_err_bits, test_true_err, sum_sq_err, False)
-            print(f'  Test: {test_err_bits} of {(len(self.network.dataloader.test_inputs))} wrong, error {test_true_err}.')
+                    self.compute_errors(self.network.dataloader.test_outputs[i], test_err_bits,
+                                        test_true_err, sum_sq_err, False)
+            print(f'  Test: {test_err_bits} of {(len(self.network.dataloader.test_inputs))}'
+                  f' wrong, error {test_true_err}.')
         self.network.score_threshold = tmp
 

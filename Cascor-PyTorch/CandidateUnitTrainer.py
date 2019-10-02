@@ -1,10 +1,12 @@
 from __future__ import absolute_import, division, print_function
 import numpy as np
 import torch
-from CascorUtil import CascorUtil, CascorStats
+from CascorUtil import CascorUtil
 
 
 class CandidateUnitTrainer:
+    """Trains the candidate unit pool"""
+
     def __init__(self, network, input_patience, input_change_threshold, input_shrink_factor,
                  input_mu, input_decay, input_epsilon, stats):
         """Give new random weights to all of the candidate units.  Zero the other
@@ -31,7 +33,6 @@ class CandidateUnitTrainer:
         self.cand_prev_cor = torch.zeros((self.network.ncandidates, self.network.noutputs))
         self.cand_weights = self.network.distribution.sample(torch.Size([self.network.ncandidates, self.network.nunits + 1]))
 
-
     def reset_candidates(self):
         """Give new random weights to all of the candidate units.  Zero the other
           candidate-unit statistics."""
@@ -46,13 +47,13 @@ class CandidateUnitTrainer:
         self.cand_prev_cor = torch.zeros((self.network.ncandidates, self.network.noutputs))
         self.cand_weights = self.network.distribution.sample(torch.Size([self.network.ncandidates, self.network.nunits + 1]))
 
-
     def compute_correlations(self, no_memory):
         """For the current training pattern, compute the value of each candidate
           unit and begin to compute the correlation between that unit's value and
           the error at each output.  We have already done a forward-prop and
           computed the error values for active units."""
-        acc_sum = torch.matmul(self.cand_weights[:, 0:self.network.nunits], (self.network.values[:self.network.nunits]).view((self.network.nunits, 1)))
+        acc_sum = torch.matmul(self.cand_weights[:, 0:self.network.nunits],
+                               (self.network.values[:self.network.nunits]).view((self.network.nunits, 1)))
         if not no_memory:
             acc_sum += (self.cand_weights[:, self.network.nunits]).view((self.cand_weights[:, self.network.nunits].shape[0], 1)) * \
                        self.cand_values.view((self.cand_values.shape[0], 1))
@@ -61,7 +62,6 @@ class CandidateUnitTrainer:
         self.cand_values[:] = vt
         self.cand_sum_values[:] += vt
         self.cand_cor[:] += v * self.network.errors
-
 
     def adjust_correlations(self):
         """Normalize each accumulated correlation value, and stuff the normalized
@@ -74,14 +74,14 @@ class CandidateUnitTrainer:
             self.best_candidate_score = max(self.best_candidate_score, 0.0)
         else:
             self.cand_prev_cor[:self.network.ncandidates, :self.network.noutputs] = \
-                (self.cand_cor - self.network.sum_errors * self.cand_sum_values.unsqueeze(1)) / self.network.sum_sq_error
+                (self.cand_cor - self.network.sum_errors * self.cand_sum_values.unsqueeze(1)) / \
+                self.network.sum_sq_error
             self.cand_scores[:self.network.ncandidates] = (torch.abs(self.cand_prev_cor)).sum(1)
             self.cand_cor = torch.zeros((self.network.ncandidates, self.network.noutputs))
             (cur_best, index) = torch.max(self.cand_scores, 0)
             if cur_best >= self.best_candidate_score:
                 self.best_candidate_score = cur_best.item()
                 self.best_candidate = index.item()
-
 
     def compute_slopes(self, no_memory):
         """Given the correlation values for each candidate-output pair, compute
@@ -91,15 +91,19 @@ class CandidateUnitTrainer:
                                (self.network.values[:self.network.nunits]).reshape((self.network.nunits, 1)))
         acc_sum = acc_sum.view(acc_sum.shape[0])
         if not no_memory:
-            acc_sum += self.cand_weights[:self.network.ncandidates, self.network.nunits] * self.cand_values[:self.network.ncandidates]
+            acc_sum += self.cand_weights[:self.network.ncandidates, self.network.nunits] * \
+                       self.cand_values[:self.network.ncandidates]
         value = self.network.unit_type.activation(acc_sum)
         actprime = self.network.unit_type.activation_prime(value, acc_sum)
         # Now compute which way we want to adjust each unit's incoming activation sum and how much
         if self.network.sum_sq_error == 0:
             direction = np.zeros(self.network.ncandidates)
         else:
-            direction = (torch.where(self.cand_prev_cor == 0, torch.zeros((self.network.ncandidates, self.network.noutputs)),
-                                     -1 * torch.sign(self.cand_prev_cor) * ((self.network.errors - self.network.sum_errors) / self.network.sum_sq_error).repeat(
+            direction = (torch.where(self.cand_prev_cor == 0, torch.zeros((self.network.ncandidates,
+                                                                           self.network.noutputs)),
+                                     -1 * torch.sign(self.cand_prev_cor) * ((self.network.errors -
+                                                                             self.network.sum_errors) /
+                                                                            self.network.sum_sq_error).repeat(
                                          self.network.ncandidates, 1))).sum(1)
             direction = direction.view(direction.shape[0])
         self.cand_cor += self.network.errors * value.view((value.shape[0], 1))
@@ -109,18 +113,19 @@ class CandidateUnitTrainer:
             dsum = actprime.view(actprime.shape[0], 1) * \
                    (self.network.values[:self.network.nunits] + (self.cand_weights[:, self.network.nunits] *
                                             self.cand_derivs[:, :self.network.nunits].transpose(0, 1)).transpose(0, 1))
-        self.cand_slopes[:self.network.ncandidates, :self.network.nunits] += direction.view((direction.shape[0], 1)) * dsum
+        self.cand_slopes[:self.network.ncandidates, :self.network.nunits] += \
+            direction.view((direction.shape[0], 1)) * dsum
         self.cand_derivs[:self.network.ncandidates, :self.network.nunits] = dsum
 
         if not no_memory:
-            dsum = actprime * (self.cand_values + self.cand_weights[:self.network.ncandidates, self.network.nunits] * self.cand_derivs[:self.network.ncandidates, self.network.nunits])
+            dsum = actprime * (self.cand_values + self.cand_weights[:self.network.ncandidates, self.network.nunits] *
+                               self.cand_derivs[:self.network.ncandidates, self.network.nunits])
             self.cand_slopes[:self.network.ncandidates, self.network.nunits] += direction * dsum
             self.cand_derivs[:self.network.ncandidates, self.network.nunits] = dsum
             # Compute derivative of activation sum w.r.t unit's auto-recurrent weight
         # Save unit value for use in next training case
         self.cand_values = value
         self.cand_sum_values += value
-
 
     def update_input_weights(self):
         """Update the input weights, using the pre-computed slopes, prev_slopes,
@@ -131,7 +136,6 @@ class CandidateUnitTrainer:
                                     self.cand_prev_slopes, eps, self.decay,
                                     self.mu, self.shrink_factor, True)
 
-
     def train_inputs_epoch(self):
         """For each training pattern, perform a forward pass. Tune the candidate units'
           weights to maximize the correlation score of each"""
@@ -140,7 +144,8 @@ class CandidateUnitTrainer:
         if not self.network.use_cache:
             self.network.values = self.network.extra_values
             self.network.errors = self.network.extra_errors
-            self.network.values[1 + self.network.ninputs:self.network.nunits] = torch.zeros(self.network.nunits - 1 - self.network.ninputs)
+            self.network.values[1 + self.network.ninputs:self.network.nunits] = \
+                torch.zeros(self.network.nunits - 1 - self.network.ninputs)
         # Now run through all the training examples
         for i in range(self.network.first_case, self.network.first_case + self.network.ncases):
             # Compute values and errors, or recall cached values.

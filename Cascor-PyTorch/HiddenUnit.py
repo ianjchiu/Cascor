@@ -11,11 +11,9 @@ class HiddenUnit:
         """Given the sum of weighted inputs, compute the unit's activation value."""
         pass
 
-
     def activation(self, acc_sum):
         """Given a vector of the units' sum of weighted inputs, compute the unit's activation value."""
         pass
-
 
     def activation_prime(self, value, acc_sum):
         """Given a vector of units' activation value and sum of weighted inputs, compute
@@ -35,7 +33,6 @@ class SigmoidHiddenUnit(HiddenUnit):
         else:
             return (1.0 / (1.0 + np.exp(-acc_sum))) - 0.5
 
-
     def activation(self, acc_sum):
         with np.errstate(divide='ignore', over='ignore', under='ignore'):
             return torch.where((torch.abs(acc_sum) <= 15), (1.0 / (1.0 + torch.exp(-acc_sum))) - 0.5, torch.sign(
@@ -53,7 +50,6 @@ class AsigmoidHiddenUnit(HiddenUnit):
             return 1.0
         else:
             return 1.0 / (1.0 + np.exp(-acc_sum))
-
 
     def activation(self, acc_sum):
         with np.errstate(divide='ignore', over='ignore', under='ignore'):
@@ -74,7 +70,6 @@ class GaussianHiddenUnit(HiddenUnit):
             return 0.0
         else:
             return np.exp(tmp)
-
 
     def activation(self, acc_sum):
         with np.errstate(divide='ignore', over='ignore', under='ignore'):
