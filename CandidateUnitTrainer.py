@@ -1,9 +1,16 @@
-from CascorNetwork import CascorNetwork
+from __future__ import absolute_import, division, print_function
+import numpy as np
+import torch
+from Dataloader import Dataloader
+from OutputUnit import OutputUnit, SigmoidOutputUnit, LinearOutputUnit
+from HiddenUnit import HiddenUnit, GaussianHiddenUnit, AsigmoidHiddenUnit, SigmoidHiddenUnit
 from CascorUtil import CascorUtil, CascorStats
+from CascorNetwork import CascorNetwork
 
 
 class CandidateUnitTrainer:
-    def __init__(self, network, input_patience, input_change_threshold, input_shrink_factor, input_mu, input_decay, input_epsilon, stats):
+    def __init__(self, network, input_patience, input_change_threshold, input_shrink_factor,
+                 input_mu, input_decay, input_epsilon, stats):
         """Give new random weights to all of the candidate units.  Zero the other
           candidate-unit statistics."""
         self.stats = stats
@@ -49,7 +56,7 @@ class CandidateUnitTrainer:
           unit and begin to compute the correlation between that unit's value and
           the error at each output.  We have already done a forward-prop and
           computed the error values for active units."""
-        acc_sum = torch.matmul(self.cand_weights[:, 0:self.network.nunits], (values[:self.network.nunits]).view((self.network.nunits, 1)))
+        acc_sum = torch.matmul(self.cand_weights[:, 0:self.network.nunits], (self.network.values[:self.network.nunits]).view((self.network.nunits, 1)))
         if not no_memory:
             acc_sum += (self.cand_weights[:, self.network.nunits]).view((self.cand_weights[:, self.network.nunits].shape[0], 1)) * \
                        self.cand_values.view((self.cand_values.shape[0], 1))
@@ -101,13 +108,13 @@ class CandidateUnitTrainer:
             direction = direction.view(direction.shape[0])
         self.cand_cor += self.network.errors * value.view((value.shape[0], 1))
         if no_memory:
-            dsum = actprime.view(actprime.shape[0], 1) * values[:self.network.nunits]
+            dsum = actprime.view(actprime.shape[0], 1) * self.network.values[:self.network.nunits]
         else:
             dsum = actprime.view(actprime.shape[0], 1) * \
-                   (values[:self.network.nunits] + (self.cand_weights[:, self.network.nunits] *
+                   (self.network.values[:self.network.nunits] + (self.cand_weights[:, self.network.nunits] *
                                             self.cand_derivs[:, :self.network.nunits].transpose(0, 1)).transpose(0, 1))
-        cand_slopes[:self.network.ncandidates, :self.network.nunits] += direction.view((direction.shape[0], 1)) * dsum
-        cand_derivs[:self.network.ncandidates, :self.network.nunits] = dsum
+        self.cand_slopes[:self.network.ncandidates, :self.network.nunits] += direction.view((direction.shape[0], 1)) * dsum
+        self.cand_derivs[:self.network.ncandidates, :self.network.nunits] = dsum
 
         if not no_memory:
             dsum = actprime * (self.cand_values + self.cand_weights[:self.network.ncandidates, self.network.nunits] * self.cand_derivs[:self.network.ncandidates, self.network.nunits])
@@ -128,33 +135,32 @@ class CandidateUnitTrainer:
 
 
     def train_inputs_epoch(self):
-            """For each training pattern, perform a forward pass. Tune the candidate units'
-              weights to maximize the correlation score of each"""
-            self.cand_values = torch.zeros(ncandidates)
-            self.cand_sum_values = torch.zeros(ncandidates)
-            if not self.network.use_cache:
-                self.network.values = self.network.extra_values
-                self.network.errors = self.network.extra_errors
-                self.network.values[1 + self.network.ninputs:self.network.nunits] = torch.zeros(self.network.nunits - 1 - self.network.ninputs)
-            # Ignored the system:serve-all-events 0 again
-            # Now run through all the training examples
-            for i in range(first_case, first_case + ncases):
-                # Compute values and errors, or recall cached values.
-                no_memory = self.network.dataloader.use_training_breaks and self.network.dataloader.training_breaks[i]
-                if use_cache:
-                    self.network.values = self.network.values_cache[i]
-                    self.network.errors = self.network.errors_cache[i]
-                else:
-                    self.network.full_forward_pass(self.network.dataloader.training_inputs[i], no_memory)
-                    self.network.recompute_errors(self.network.dataloader.training_outputs[i])
-                # Compute the slopes we will use to adjust candidate weights.
-                self.compute_slopes(no_memory)
-            self.shrink_factor = self.mu / (1.0 + self.mu)
-            # Now adjust the candidate unit input weights using quickprop
-            self.update_input_weights()
-            # Fix up the correlation values for the next epoch
-            self.adjust_correlations()
-            self.stats.epoch += 1
+        """For each training pattern, perform a forward pass. Tune the candidate units'
+          weights to maximize the correlation score of each"""
+        self.cand_values = torch.zeros(self.network.ncandidates)
+        self.cand_sum_values = torch.zeros(self.network.ncandidates)
+        if not self.network.use_cache:
+            self.network.values = self.network.extra_values
+            self.network.errors = self.network.extra_errors
+            self.network.values[1 + self.network.ninputs:self.network.nunits] = torch.zeros(self.network.nunits - 1 - self.network.ninputs)
+        # Now run through all the training examples
+        for i in range(self.network.first_case, self.network.first_case + self.network.ncases):
+            # Compute values and errors, or recall cached values.
+            no_memory = self.network.dataloader.use_training_breaks and self.network.dataloader.training_breaks[i]
+            if self.network.use_cache:
+                self.network.values = self.network.values_cache[i]
+                self.network.errors = self.network.errors_cache[i]
+            else:
+                self.network.full_forward_pass(self.network.dataloader.training_inputs[i], no_memory)
+                self.network.recompute_errors(self.network.dataloader.training_outputs[i])
+            # Compute the slopes we will use to adjust candidate weights.
+            self.compute_slopes(no_memory)
+        self.shrink_factor = self.mu / (1.0 + self.mu)
+        # Now adjust the candidate unit input weights using quickprop
+        self.update_input_weights()
+        # Fix up the correlation values for the next epoch
+        self.adjust_correlations()
+        self.stats.epoch += 1
 
     def correlations_epoch(self):
         """Do an epoch through all active training patterns just to compute the
@@ -165,7 +171,7 @@ class CandidateUnitTrainer:
         if not self.network.use_cache:
             self.network.values = self.network.extra_values
             self.network.errors = self.network.extra_errors
-            self.network.values[(1 + ninputs):self.network.nunits] = 0.0
+            self.network.values[(1 + self.network.ninputs):self.network.nunits] = 0.0
 
         for i in range(self.first_case, self.first_case + self.network.ncases):
             no_memory = self.network.dataloader.use_training_breaks and self.network.dataloader.training_breaks[i]

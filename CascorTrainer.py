@@ -4,12 +4,17 @@ import torch
 from Dataloader import Dataloader
 from OutputUnit import OutputUnit, SigmoidOutputUnit, LinearOutputUnit
 from HiddenUnit import HiddenUnit, GaussianHiddenUnit, AsigmoidHiddenUnit, SigmoidHiddenUnit
+from datetime import datetime, date
+import time
 from CascorUtil import CascorUtil, CascorStats
 from CascorNetwork import CascorNetwork
 from CandidateUnitTrainer import CandidateUnitTrainer
 
+
 class CascorTrainer:
-    def __init__(self, network, candidate_trainer, outlimit, inlimit, rounds, output_patience, output_epsilon, output_mu, output_decay, output_deltas, output_slopes, output_prev_slopes, output_shrink_factor, stats=CascorStats(), weight_multiplier=1, test_function=None, test=True,restart=False):
+    def __init__(self, network, candidate_trainer, outlimit, inlimit, rounds, output_patience, output_epsilon,
+                 output_mu, output_decay, output_deltas, output_slopes, output_prev_slopes, output_shrink_factor,
+                 stats=CascorStats(), weight_multiplier=1, test_function=None, test=True, restart=False):
         self.stats = stats
         self.output_patience = output_patience
         self.output_epsilon = output_epsilon
@@ -51,7 +56,7 @@ class CascorTrainer:
                 else:
                     err = np.log(((1.0 + dif) / (1.0 - dif)))
 
-            err_prime = err if raw_error else err * self.network.output_type.output_prime(out)
+            err_prime = err if self.network.raw_error else err * self.network.output_type.output_prime(out)
             if (abs(dif)) >= self.network.score_threshold:
                 err_bits += 1
             true_err += dif * dif
@@ -96,13 +101,13 @@ class CascorTrainer:
                                                (self.network.dataloader.use_training_breaks and
                                                 self.network.dataloader.training_breaks[i]))
             # gotta expand compute_error macro
-            err_bits, true_err, sum_sq_err = compute_errors(training_outputs[i], err_bits, true_err, sum_sq_err, True)
+            err_bits, true_err, sum_sq_err = self.compute_errors(self.network.dataloader.training_outputs[i], err_bits, true_err, sum_sq_err, True)
         self.error_bits = err_bits
         self.true_error = true_err
         self.network.sum_sq_error = sum_sq_err
 
         # Do not change weights or count epoch if this run was perfect
-        if error_bits != 0:
+        if self.error_bits != 0:
             self.update_output_weights()
             self.stats.epoch += 1
 
@@ -138,7 +143,7 @@ class CascorTrainer:
             self.network = CascorNetwork(self.network.distribution, self.network.dataloader,
                                          self.network.noutputs, self.network.ninputs, self.network.max_units,
                                          self.network.unit_type, self.network.output_type, self.network.use_cache)
-        if network.use_cache:
+        if self.network.use_cache:
             self.network.values_cache *= 0
             self.network.values_cache[:, 0] += 1.0
             self.network.values_cache[:, 1:self.network.ninputs + 1] += self.network.dataloader.training_inputs
@@ -164,7 +169,7 @@ class CascorTrainer:
             else:
                 print("Should not be here, invalid res. \n")
                 raise RuntimeError("Invalid train_outputs")
-            if test and "win" == test_function():
+            if self.test and "win" == self.test_function():
                 return None
             res = self.candidate_trainer.train_inputs(self.inlimit)
             if res == "timeout":
@@ -187,3 +192,41 @@ class CascorTrainer:
         print(f'Lost at {finished} in '
               f'{datetime.combine(date.today(), finished) - datetime.combine(date.today(), start)}')
         return "lose"
+
+    def test_epoch(self, tmp_score_threshold=0.49999):
+        """Perform forward propagation once for each set of weights in the training
+      and testing vectors.  Reporting the performance.  Do not change any
+      weights.  Do not use the caches."""
+        tmp = self.network.score_threshold
+        self.network.score_threshold = tmp_score_threshold
+        self.network.use_cache = False
+        self.network.values = self.network.extra_values
+        self.network.errors = self.network.extra_errors
+        self.network.sum_errors = self.network.dummy_sum_errors
+        train_err_bits = 0
+        test_err_bits = 0
+        train_true_err = 0.0
+        test_true_err = 0.0
+        sum_sq_err = 0.0
+        # Zero context at the start of the training set.
+        self.network.values[1 + self.network.ninputs:self.network.nunits] = torch.zeros(self.network.nunits - 1 - self.network.ninputs)
+
+        # Run all training patterns and count errors
+
+        for i in range(len(self.network.dataloader.training_inputs)):
+            self.network.full_forward_pass(self.network.dataloader.training_inputs[i],
+                                           self.network.dataloader.use_training_breaks and
+                                           self.network.dataloader.training_breaks[i])
+            train_err_bits, train_true_err, sum_sq_err = \
+                self.compute_errors(self.network.dataloader.training_outputs[i], train_err_bits, train_true_err, sum_sq_err, False)
+        print(f'Training: {train_err_bits} of {(len(self.network.dataloader.training_inputs))} wrong, error {train_true_err}.')
+        # Zero context at the start of the test set.
+        self.network.values[1 + self.network.ninputs:self.network.nunits] = torch.zeros(self.network.nunits - 1 - self.network.ninputs)
+        if self.network.dataloader.test_inputs is not None:
+            for i in range(len(self.network.dataloader.test_inputs)):
+                self.network.full_forward_pass(self.network.dataloader.test_inputs[i], self.network.dataloader.use_test_breaks and self.network.dataloader.test_breaks[i])
+                test_err_bits, test_true_err, sum_sq_err = \
+                    self.compute_errors(self.network.dataloader.test_outputs[i], test_err_bits, test_true_err, sum_sq_err, False)
+            print(f'  Test: {test_err_bits} of {(len(self.network.dataloader.test_inputs))} wrong, error {test_true_err}.')
+        self.network.score_threshold = tmp
+

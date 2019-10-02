@@ -1,16 +1,19 @@
 from __future__ import absolute_import, division, print_function
-from CascorUtil import quickprop_update, compute_unit_value
+from CascorUtil import CascorUtil
 from HiddenUnit import HiddenUnit, AsigmoidHiddenUnit, GaussianHiddenUnit, SigmoidHiddenUnit
 from OutputUnit import LinearOutputUnit, SigmoidOutputUnit
-from numpy import exp, random, log
 import numpy as np
 import matplotlib.pyplot as plt
 from datetime import datetime, date
 import time
 import torch
 
+
 class CascorNetwork:
-    def __init__(self, unit_type, output_type, use_cache, score_threshold, dataloader, noutputs=1, ninputs=1, max_units=100, distribution=torch.distributions.uniform.Uniform(-1, 1)):
+    def __init__(self, unit_type, output_type, use_cache, score_threshold, dataloader, raw_error, hyper_error,
+                 noutputs=1, ninputs=1, max_units=100, distribution=torch.distributions.uniform.Uniform(-1, 1)):
+        self.raw_error = raw_error
+        self.hyper_error = hyper_error
         self.score_threshold = score_threshold
         self.use_cache = use_cache
         self.distribution = distribution
@@ -39,7 +42,6 @@ class CascorNetwork:
         if self.use_cache:
             self.values_cache = torch.zeros((self.max_cases, self.max_units))
             self.errors_cache = torch.zeros((self.max_cases, self.noutputs))
-
         # For each output, create the vectors holding per-weight info
         self.output_weights = torch.zeros((self.noutputs, self.max_units))
         self.output_weights[:self.noutputs, :1+self.ninputs] = distribution.sample(torch.Size([self.noutputs,
@@ -48,7 +50,6 @@ class CascorNetwork:
         self.output_deltas = torch.zeros((self.noutputs, self.max_units))
         self.output_slopes = torch.zeros((self.noutputs, self.max_units))
         self.output_prev_slopes = torch.zeros((self.noutputs, self.max_units))
-
         # For each candidate unit, create the vectors holding the correlations, incoming weights, and other stats
         self.cand_cor = torch.zeros((self.ncandidates, self.noutputs))
         self.cand_prev_cor = torch.zeros((self.ncandidates, self.noutputs))
@@ -57,25 +58,6 @@ class CascorNetwork:
         self.cand_slopes = torch.zeros((self.ncandidates, self.max_units + 1))
         self.cand_prev_slopes = torch.zeros((self.ncandidates, self.max_units + 1))
         self.cand_derivs = torch.zeros((self.ncandidates, self.max_units + 1))
-
-
-    def install_new_unit(self, unit, prev_cor, weight_multiplier):
-        if self.nunits >= self.max_units:
-            return False
-        self.weights[self.nunits, :self.nunits+1] = unit[:1+nunits]
-        print("  Add unit {0}: {1}".format(nunits - ninputs, unit))
-        self.output_weights[:, self.nunits] = weight_multiplier *  -prev_cor
-        if self.use_cache:
-            prev_value = 0.0
-            for i in range(self.max_cases):
-                self.values = self.valeus_cache[i]
-                if self.dataloader.use_training_breaks and self.dataloader.training_breaks[i]:
-                    prev_value = compute_unit_value(self.values, self.weights, self.unit_type, self.nunits, 0.0)
-                else:
-                    prev_value = compute_unit_value(self.values, self.weights, self.unit_type, self.nunits, prev_value)
-        self.nunits += 1
-        return True
-
 
     def set_up_inputs(self, input_vec):
         self.values[0] = 1.0
@@ -87,18 +69,16 @@ class CascorNetwork:
         self.values[j] = self.unit_type.activation_singleton(torch.sum((w[:j] * self.values[:j])) + prev_value * w[j])
         return self.values[j]
 
-
     def output_forward_pass(self):
-        self.outputs = torch.matmul(self.values[:nunits],(self.output_weights[:, :self.nunits]).transpose(0,1))
+        self.outputs = torch.matmul(self.values[:self.nunits],(self.output_weights[:, :self.nunits]).transpose(0,1))
         self.outputs = self.output_type.output_function(self.outputs)
 
     def recompute_errors(self, goal):
         for j in range(self.noutputs):
             out = self.outputs[j]
             diff = out - goal[j]
-            err_prime = dif * self.output_type.output_prime(out)
+            err_prime = diff * self.output_type.output_prime(out)
             self.errors[j] = err_prime
-
 
     def full_forward_pass(self, input_vec, no_memory):
         self.set_up_inputs(input_vec)
@@ -106,9 +86,24 @@ class CascorNetwork:
             if no_memory:
                 self.compute_unit_value(self.values, self.weights, self.unit_type, j, 0.0)
             else:
-                self.compute_unit_value(self.values, self.weights, self.unit_type,j, values[j])
+                self.compute_unit_value(self.values, self.weights, self.unit_type,j, self.values[j])
         self.output_forward_pass()
 
-
+    def install_new_unit(self, unit, prev_cor, weight_multiplier):
+        if self.nunits >= self.max_units:
+            return False
+        self.weights[self.nunits, :self.nunits+1] = unit[:1+self.nunits]
+        print("  Add unit {0}: {1}".format(self.nunits - self.ninputs, unit))
+        self.output_weights[:, self.nunits] = weight_multiplier *  -prev_cor
+        if self.use_cache:
+            prev_value = 0.0
+            for i in range(self.max_cases):
+                self.values = self.values_cache[i]
+                if self.dataloader.use_training_breaks and self.dataloader.training_breaks[i]:
+                    prev_value = self.compute_unit_value(self.values, self.weights, self.unit_type, self.nunits, 0.0)
+                else:
+                    prev_value = self.compute_unit_value(self.values, self.weights, self.unit_type, self.nunits, prev_value)
+        self.nunits += 1
+        return True
 
 
