@@ -63,4 +63,4 @@ ctrainer = CascorTrainer(network, candidate_trainer, outlimit, inlimit, rounds, 
                  output_change_threshold, stats, weight_multiplier=1, test_function=None, test=False, restart=False)
 ``` 
 
-In this case, we create our network by initializing the unit_type, output_type, and dataloader, and we call the constructor. 
+In this case, we create our network by initializing the unit_type, output_type, and dataloader, and we call the constructor. In tester.py we are evaluating the network on Morse code, as done in Fahlman's paper on RCC.
