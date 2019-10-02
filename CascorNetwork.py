@@ -10,9 +10,11 @@ import torch
 
 
 class CascorNetwork:
+    """Class definition of Recurrent Cascor Network."""
+
     def __init__(self, ncandidates, unit_type, output_type, use_cache, score_threshold, dataloader, raw_error,
-                 hyper_error,
-                 noutputs=1, ninputs=1, max_units=100, distribution=torch.distributions.uniform.Uniform(-1, 1)):
+                 hyper_error, noutputs=1, ninputs=1, max_units=100,
+                 distribution=torch.distributions.uniform.Uniform(-1, 1)):
         self.ncandidates = ncandidates
         self.raw_error = raw_error
         self.hyper_error = hyper_error
@@ -38,9 +40,7 @@ class CascorNetwork:
         self.errors = self.extra_errors
         self.sum_errors = torch.zeros(self.noutputs)
         self.dummy_sum_errors = torch.zeros(self.noutputs)
-        self.cand_values = torch.zeros(self.ncandidates)
-        self.cand_sum_values = torch.zeros(self.ncandidates)
-        self.cand_scores = torch.zeros(self.ncandidates)
+
         if self.use_cache:
             self.values_cache = torch.zeros((self.max_cases, self.max_units))
             self.errors_cache = torch.zeros((self.max_cases, self.noutputs))

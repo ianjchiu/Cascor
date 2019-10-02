@@ -12,6 +12,7 @@ from CandidateUnitTrainer import CandidateUnitTrainer
 
 
 class CascorTrainer:
+    """The trainer for the Cascor network. Performs the entire outer loop of checking for errors and weight-tuning"""
     def __init__(self, network, candidate_trainer, outlimit, inlimit, rounds, output_patience, output_epsilon,
                  output_mu, output_decay, output_deltas, output_slopes, output_prev_slopes, output_shrink_factor,
                  output_change_threshold, stats=CascorStats(), weight_multiplier=1, test_function=None, test=True,
