@@ -17,8 +17,8 @@ class OutputUnit:
 
 
 class SigmoidOutputUnit(OutputUnit):
-    def __init__(self):
-        pass
+    def __init__(self, sigmoid_prime_offset=0.1):
+        self.sigmoid_prime_offset = sigmoid_prime_offset
 
 
     def output_function(self, acc_sum):
@@ -28,7 +28,7 @@ class SigmoidOutputUnit(OutputUnit):
 
 
     def output_prime(self, output):
-        return sigmoid_prime_offset + 0.25 - output * output
+        return self.sigmoid_prime_offset + 0.25 - output * output
 
 
 class LinearOutputUnit(OutputUnit):

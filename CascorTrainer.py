@@ -14,7 +14,9 @@ from CandidateUnitTrainer import CandidateUnitTrainer
 class CascorTrainer:
     def __init__(self, network, candidate_trainer, outlimit, inlimit, rounds, output_patience, output_epsilon,
                  output_mu, output_decay, output_deltas, output_slopes, output_prev_slopes, output_shrink_factor,
-                 stats=CascorStats(), weight_multiplier=1, test_function=None, test=True, restart=False):
+                 output_change_threshold, stats=CascorStats(), weight_multiplier=1, test_function=None, test=True,
+                 restart=False):
+        self.output_change_threshold = output_change_threshold
         self.stats = stats
         self.output_patience = output_patience
         self.output_epsilon = output_epsilon
@@ -73,7 +75,9 @@ class CascorTrainer:
         """Update the output weights, using the pre-computed slopes, prev-slopes,
       and delta values. Uses the quickprop update function."""
         eps = self.output_epsilon / self.network.ncases
-        CascorUtil.quickprop_update(self.network.output_weights, self.output_deltas, self.output_slopes,
+        CascorUtil.quickprop_update(self.network.output_weights, self.network.nunits,
+                                    self.network.ncandidates, self.network.noutputs,
+                                    self.output_deltas, self.output_slopes,
                                     self.output_prev_slopes, eps, self.output_decay, self.output_mu,
                                     self.output_shrink_factor, False)
 
@@ -95,7 +99,7 @@ class CascorTrainer:
             if self.network.use_cache:
                 self.network.values = self.network.values_cache[i]
                 self.network.errors = self.network.errors_cache[i]
-                self.output_forward_pass()
+                self.network.output_forward_pass()
             else:
                 self.network.full_forward_pass(self.network.dataloader.training_inputs[i],
                                                (self.network.dataloader.use_training_breaks and

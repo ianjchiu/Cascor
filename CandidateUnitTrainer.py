@@ -130,7 +130,9 @@ class CandidateUnitTrainer:
         """Update the input weights, using the pre-computed slopes, prev_slopes,
       and delta values.  Uses the quickprop update function."""
         eps = self.epsilon / (self.network.ncases * self.network.nunits)
-        CascorUtil.quickprop_update(self.cand_weights, self.cand_deltas, self.cand_slopes, self.cand_prev_slopes, eps, self.decay,
+        CascorUtil.quickprop_update(self.cand_weights, self.network.nunits, self.network.ncandidates,
+                                    self.network.noutputs, self.cand_deltas, self.cand_slopes,
+                                    self.cand_prev_slopes, eps, self.decay,
                                     self.mu, self.shrink_factor, True)
 
 
@@ -173,10 +175,10 @@ class CandidateUnitTrainer:
             self.network.errors = self.network.extra_errors
             self.network.values[(1 + self.network.ninputs):self.network.nunits] = 0.0
 
-        for i in range(self.first_case, self.first_case + self.network.ncases):
+        for i in range(self.network.first_case, self.network.first_case + self.network.ncases):
             no_memory = self.network.dataloader.use_training_breaks and self.network.dataloader.training_breaks[i]
             if self.network.use_cache:
-                self.network.values = self.network.self.network.values_cache[i]
+                self.network.values = self.network.values_cache[i]
                 self.network.errors = self.network.errors_cache[i]
             else:
                 self.network.full_forward_pass(self.network.dataloader.training_inputs[i], no_memory)
@@ -194,7 +196,7 @@ class CandidateUnitTrainer:
           patience is zero, we do not stop until victory or until max_epochs is
           used up."""
         self.network.sum_errors /= self.network.ncases
-        self.correlation_epoch()
+        self.correlations_epoch()
         last_score = 0.0
         stop = max_epochs
         first_time = True

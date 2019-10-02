@@ -10,8 +10,10 @@ import torch
 
 
 class CascorNetwork:
-    def __init__(self, unit_type, output_type, use_cache, score_threshold, dataloader, raw_error, hyper_error,
+    def __init__(self, ncandidates, unit_type, output_type, use_cache, score_threshold, dataloader, raw_error,
+                 hyper_error,
                  noutputs=1, ninputs=1, max_units=100, distribution=torch.distributions.uniform.Uniform(-1, 1)):
+        self.ncandidates = ncandidates
         self.raw_error = raw_error
         self.hyper_error = hyper_error
         self.score_threshold = score_threshold
@@ -84,9 +86,9 @@ class CascorNetwork:
         self.set_up_inputs(input_vec)
         for j in range(1 + self.ninputs, self.nunits):
             if no_memory:
-                self.compute_unit_value(self.values, self.weights, self.unit_type, j, 0.0)
+                self.compute_unit_value(j, 0.0)
             else:
-                self.compute_unit_value(self.values, self.weights, self.unit_type,j, self.values[j])
+                self.compute_unit_value(j, self.values[j])
         self.output_forward_pass()
 
     def install_new_unit(self, unit, prev_cor, weight_multiplier):
@@ -100,9 +102,9 @@ class CascorNetwork:
             for i in range(self.max_cases):
                 self.values = self.values_cache[i]
                 if self.dataloader.use_training_breaks and self.dataloader.training_breaks[i]:
-                    prev_value = self.compute_unit_value(self.values, self.weights, self.unit_type, self.nunits, 0.0)
+                    prev_value = self.compute_unit_value(self.nunits, 0.0)
                 else:
-                    prev_value = self.compute_unit_value(self.values, self.weights, self.unit_type, self.nunits, prev_value)
+                    prev_value = self.compute_unit_value(self.nunits, prev_value)
         self.nunits += 1
         return True
 

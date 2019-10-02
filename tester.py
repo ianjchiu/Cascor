@@ -1,5 +1,5 @@
-from datasets import morse as ds
 from __future__ import absolute_import, division, print_function
+from datasets import morse as ds
 import numpy as np
 import torch
 from Dataloader import Dataloader
@@ -383,16 +383,57 @@ cand_derivs = None
 """A vector of vectors, parallel in structure to the cand_weights vector.
 For each weight wi, remember dV/dwi on the previous training case."""
 
+max_cases = len(training_inputs)
+ncases = max_cases
+first_case = 0
+nunits = 1 + ninputs
+# array of arrays of floats
+# a float array
+extra_values = torch.zeros(max_units)
+values = extra_values
+# I'll figure out what to do with weights SoonTM
+weights = None
+outputs = torch.zeros(noutputs)
+extra_errors = torch.zeros(noutputs)
+errors = extra_errors
+sum_errors = torch.zeros(noutputs)
+dummy_sum_errors = torch.zeros(noutputs)
+cand_values = torch.zeros(ncandidates)
+cand_sum_values = torch.zeros(ncandidates)
+cand_scores = torch.zeros(ncandidates)
+
+# Only create the cache if use_cache is on; may not have room
+if use_cache:
+    values_cache = torch.zeros((max_cases, max_units))
+    errors_cache = torch.zeros((max_cases, noutputs))
+
+# For each output, create the vectors holding per-weight info
+output_weights = torch.zeros((noutputs, max_units))
+output_weights_record = torch.zeros((max_units, noutputs))
+output_deltas = torch.zeros((noutputs, max_units))
+output_slopes = torch.zeros((noutputs, max_units))
+output_prev_slopes = torch.zeros((noutputs, max_units))
+
+# For each candidate unit, create the vectors holding the correlations, incoming weights, and other stats
+cand_cor = torch.zeros((ncandidates, noutputs))
+cand_prev_cor = torch.zeros((ncandidates, noutputs))
+cand_weights = torch.zeros((ncandidates, max_units+1))
+cand_deltas = torch.zeros((ncandidates, max_units+1))
+cand_slopes = torch.zeros((ncandidates, max_units+1))
+cand_prev_slopes = torch.zeros((ncandidates, max_units+1))
+cand_derivs = torch.zeros((ncandidates, max_units+1))
+
 
 unit_type = SigmoidHiddenUnit()
 output_type = SigmoidOutputUnit()
 dataloader = Dataloader(training_inputs, training_outputs, use_training_breaks,
                  training_breaks, test_inputs, test_outputs, use_test_breaks, test_breaks)
 
-network = CascorNetwork(unit_type, output_type, use_cache, score_threshold, dataloader, raw_error, hyper_error,
+network = CascorNetwork(ncandidates, unit_type, output_type, use_cache, score_threshold, dataloader, raw_error,
+                        hyper_error,
                  noutputs, ninputs, max_units, distribution=torch.distributions.uniform.Uniform(-1, 1))
 stats = CascorStats()
-trainer = CandidateUnitTrainer(network, input_patience, input_change_threshold, input_shrink_factor,
+candidate_trainer = CandidateUnitTrainer(network, input_patience, input_change_threshold, input_shrink_factor,
                  input_mu, input_decay, input_epsilon, stats)
 
 outlimit= 100
@@ -401,6 +442,9 @@ rounds = 100
 
 ctrainer = CascorTrainer(network, candidate_trainer, outlimit, inlimit, rounds, output_patience, output_epsilon,
                  output_mu, output_decay, output_deltas, output_slopes, output_prev_slopes, output_shrink_factor,
-                 stats, weight_multiplier=1, test_function=None, test=False, restart=False)
+                 output_change_threshold, stats, weight_multiplier=1, test_function=None, test=False, restart=False)
+
+ctrainer.train()
+
 
 
