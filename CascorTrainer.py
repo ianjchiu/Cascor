@@ -66,7 +66,7 @@ class CascorTrainer:
             self.network.sum_errors[j] += err_prime
             sum_sq_err += err_prime * err_prime
             if slopes_p:
-                os = self.network.output_slopes[j]
+                os = self.output_slopes[j]
                 for i in range(self.network.nunits):
                     os[i] += err_prime * self.network.values[i]
         return err_bits, true_err, sum_sq_err

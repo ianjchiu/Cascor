@@ -48,18 +48,6 @@ class CascorNetwork:
         self.output_weights = torch.zeros((self.noutputs, self.max_units))
         self.output_weights[:self.noutputs, :1+self.ninputs] = distribution.sample(torch.Size([self.noutputs,
                                                                                                1+self.ninputs]))
-        self.output_weights_record = torch.zeros((self.max_units, self.noutputs))
-        self.output_deltas = torch.zeros((self.noutputs, self.max_units))
-        self.output_slopes = torch.zeros((self.noutputs, self.max_units))
-        self.output_prev_slopes = torch.zeros((self.noutputs, self.max_units))
-        # For each candidate unit, create the vectors holding the correlations, incoming weights, and other stats
-        self.cand_cor = torch.zeros((self.ncandidates, self.noutputs))
-        self.cand_prev_cor = torch.zeros((self.ncandidates, self.noutputs))
-        self.cand_weights = torch.zeros((self.ncandidates, self.max_units + 1))
-        self.cand_deltas = torch.zeros((self.ncandidates, self.max_units + 1))
-        self.cand_slopes = torch.zeros((self.ncandidates, self.max_units + 1))
-        self.cand_prev_slopes = torch.zeros((self.ncandidates, self.max_units + 1))
-        self.cand_derivs = torch.zeros((self.ncandidates, self.max_units + 1))
 
     def set_up_inputs(self, input_vec):
         self.values[0] = 1.0
