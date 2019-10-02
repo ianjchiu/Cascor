@@ -7,37 +7,37 @@ In both `Cascor-NumPy/` and `Cascor-PyTorch/`, the logic is identical. Therefore
 
 ### CascorNetwork.py
 In CascorNetwork.py, I created a class for the recurrent cascor network. The purpose is to separate out the structure of the code so that training the network will be separated from utilizing the network. For Cascor, the key details are the hyperparameters of the network:
-* weight_range - the possible range for the weights in the network
-* ncandidates - the number of candidates in the candidate pool
-* raw_error - True, if we do not want to scale the error by the derivative of the output's activation function
-* hyper_error - If we use hyperbolic artan error or not
-* score_threshold - How close the output needs to be to be counted as correct
-* use_cache - If we cache forward-pass values instead of recomputing them all the time
-* output_type - Output unit type
-* ninputs - Number of inputs
-* noutputs - Number of outputs
-* dataloader - Contains the data for training / testing
-* max_units - Maximum number of units permitted in the network
+* `weight_range` - the possible range for the weights in the network
+* `ncandidates` - the number of candidates in the candidate pool
+* `raw_error` - True, if we do not want to scale the error by the derivative of the output's activation function
+* `hyper_error` - If we use hyperbolic artan error or not
+* `score_threshold` - How close the output needs to be to be counted as correct
+* `use_cache` - If we cache forward-pass values instead of recomputing them all the time
+* `output_type` - Output unit type
+* `ninputs` - Number of inputs
+* `noutputs` - Number of outputs
+* `dataloader` - Contains the data for training / testing
+* `max_units` - Maximum number of units permitted in the network
 
 It also contains the network represented in the arrays:
-* weights - array of weights from unit to unit
-* outputs - stored outputs after a forward pass
+* `weights` - array of weights from unit to unit
+* `outputs` - stored outputs after a forward pass
 
 ### CandidateUnitTrainer.py
 This class does one of the two major parts of training cascor. This is the input-forward pass training where we train our candidate units and find the candidate whose score correlates most strongly with the current error signal. Contains hyperparameters for candidate pool training:
-* mu - Parameter for quickprop
-* epsilon - The amount of linear gradient descent used to update unit input weights
-* shrink_factor - Check if step size is too large
-* decay - Keeps weights from growing too big
-* patience - Number of allowed consecutive epochs without significant change
-* change_threshold - Amount changed required to count as a significant change
+* `mu` - Parameter for quickprop
+* `epsilon` - The amount of linear gradient descent used to update unit input weights
+* `shrink_factor` - Check if step size is too large
+* `decay` - Keeps weights from growing too big
+* `patience` - Number of allowed consecutive epochs without significant change
+* `change_threshold` - Amount changed required to count as a significant change
 
 ### CascorTrainer.py
-This class does most of the heavy lifting. It performs the outer loop of training the output weights after adding a new unit to the network. Additionally, it calls the candidate pool trainer to train the network to completion. Its hyperparameters of mu, epsilon, shrink_factor, decay, patience, change_threshold defined as above. The additional hyperparameters are:
-* stats - Keeps track of the epoch and other statistics for the network
-* outlimit - Upper limit on the number of cycles in output phase
-* inlimit - Upper limit on the number of cycles in input phase (candidate unit training)
-* rounds - Upper limit on number of unit-installation cycles
+This class does most of the heavy lifting. It performs the outer loop of training the output weights after adding a new unit to the network. Additionally, it calls the candidate pool trainer to train the network to completion. Its hyperparameters of `mu`, `epsilon`, `shrink_factor`, `decay`, `patience`, `change_threshold` defined as above. The additional hyperparameters are:
+* `stats` - Keeps track of the epoch and other statistics for the network
+* `outlimit` - Upper limit on the number of cycles in output phase
+* `inlimit` - Upper limit on the number of cycles in input phase (candidate unit training)
+* `rounds` - Upper limit on number of unit-installation cycles
 
 
 ### Motivations and Future Extensions:
