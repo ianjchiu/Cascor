@@ -1,14 +1,10 @@
 from __future__ import absolute_import, division, print_function
 import numpy as np
 import torch
-from Dataloader import Dataloader
-from OutputUnit import OutputUnit, SigmoidOutputUnit, LinearOutputUnit
-from HiddenUnit import HiddenUnit, GaussianHiddenUnit, AsigmoidHiddenUnit, SigmoidHiddenUnit
 from datetime import datetime, date
 import time
 from CascorUtil import CascorUtil, CascorStats
 from CascorNetwork import CascorNetwork
-from CandidateUnitTrainer import CandidateUnitTrainer
 
 
 class CascorTrainer:

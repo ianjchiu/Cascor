@@ -1,11 +1,4 @@
 from __future__ import absolute_import, division, print_function
-from CascorUtil import CascorUtil
-from HiddenUnit import HiddenUnit, AsigmoidHiddenUnit, GaussianHiddenUnit, SigmoidHiddenUnit
-from OutputUnit import LinearOutputUnit, SigmoidOutputUnit
-import numpy as np
-import matplotlib.pyplot as plt
-from datetime import datetime, date
-import time
 import torch
 
 
