@@ -71,5 +71,5 @@ In this case, we create our network by initializing the unit_type, output_type, 
 * Ian Chiu - NumPy and PyTorch implementation 
 
 ### Contact
-For issues, concerns, or suggestions please contact Ian Chiu at [email](mailto:ichiu@andrew.cmu.edu)
+For issues, concerns, or suggestions please contact [Ian Chiu](mailto:ichiu@andrew.cmu.edu)
 
