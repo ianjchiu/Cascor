@@ -391,4 +391,16 @@ dataloader = Dataloader(training_inputs, training_outputs, use_training_breaks,
 
 network = CascorNetwork(unit_type, output_type, use_cache, score_threshold, dataloader, raw_error, hyper_error,
                  noutputs, ninputs, max_units, distribution=torch.distributions.uniform.Uniform(-1, 1))
+stats = CascorStats()
+trainer = CandidateUnitTrainer(network, input_patience, input_change_threshold, input_shrink_factor,
+                 input_mu, input_decay, input_epsilon, stats)
+
+outlimit= 100
+inlimit = 100
+rounds = 100
+
+ctrainer = CascorTrainer(network, candidate_trainer, outlimit, inlimit, rounds, output_patience, output_epsilon,
+                 output_mu, output_decay, output_deltas, output_slopes, output_prev_slopes, output_shrink_factor,
+                 stats, weight_multiplier=1, test_function=None, test=False, restart=False)
+
 
