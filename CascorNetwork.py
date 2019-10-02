@@ -10,7 +10,7 @@ import time
 import torch
 
 class CascorNetwork:
-    def __init__(self, unit_type, output_type, use_cache, score_threshold, distribution, dataloader, noutputs=1, ninputs=1, max_units=100):
+    def __init__(self, unit_type, output_type, use_cache, score_threshold, dataloader, noutputs=1, ninputs=1, max_units=100, distribution=torch.distributions.uniform.Uniform(-1, 1)):
         self.score_threshold = score_threshold
         self.use_cache = use_cache
         self.distribution = distribution
